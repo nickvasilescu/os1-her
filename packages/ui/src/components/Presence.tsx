@@ -113,7 +113,7 @@ export function Presence({ state, getLevel, size = 440 }: Props) {
       ref={canvas}
       role="img"
       aria-label={`Samantha is ${state}`}
-      style={{ width: size, height: size * 0.42, display: "block" }}
+      style={{ width: size, height: size * 0.42, maxWidth: "100%", display: "block" }}
     />
   );
 }

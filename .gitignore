@@ -35,3 +35,6 @@ __pycache__/
 
 # os
 .DS_Store
+uaos1-orchestrator.log
+uaos1-livekit.log
+uaos1-voice.log

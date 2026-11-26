@@ -12,10 +12,17 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from . import notify
 from .cards import extract_card_phrases
 from .store import Os1Store
 
 log = logging.getLogger("os1.bus")
+
+# Surfaces the UI can draw (packages/ui ActiveSurface). Anything else would blank the app.
+KNOWN_SURFACES = frozenset({
+    "conversation", "home", "inbox_cascade", "your_computer", "her_computer", "swarm",
+    "made_just_now", "connectors", "voice_picker", "memory", "apps", "atlas",
+})
 
 BOUNDED_CUA_MANIFEST: dict[str, Any] = {
     "version": "3",
@@ -75,6 +82,8 @@ class StateHub:
         self.remembered_shimmer: dict[str, Any] | None = None
         self.next_greeting_queue: list[dict[str, Any]] = []
         self.recent_actions: list[str] = []
+        # Extra speakable pills per surface (e.g. UAO "Open Jellyfin" while Apps & services is up).
+        self.pill_providers: dict[str, Any] = {}
 
         # Cua Driver outbound tunnel state (user's Mac)
         self.cua_ws: WebSocket | None = None
@@ -122,6 +131,12 @@ class StateHub:
                     {"phrase": "Back to talking", "target": "surface", "action": "conversation"},
                 ]
             )
+        provider = self.pill_providers.get(self.active_surface)
+        if provider is not None:
+            try:
+                pills.extend(provider())
+            except Exception as exc:  # noqa: BLE001 - a bad provider must not break the bus
+                log.debug("pill provider for %s failed: %s", self.active_surface, exc)
         undo = self.store.latest_undo()
         if undo:
             pills.append({"phrase": "Undo that", "target": "undo", "action": undo["id"]})
@@ -186,6 +201,9 @@ class StateHub:
         self.recent_actions = self.recent_actions[-12:]
 
     async def set_surface(self, surface: str) -> None:
+        if surface not in KNOWN_SURFACES:
+            log.warning("ignoring unknown surface %r", surface)
+            return
         self.active_surface = surface
         self.record_action(f"surface:{surface}")
         await self.broadcast()
@@ -229,6 +247,7 @@ class StateHub:
             meta=meta or {},
         )
         self.pending_actions[action.id] = action
+        notify.approval_needed(action.id, title, list(action.summaryLines))
         self.record_action(f"pending:{title}")
         await self.broadcast()
         return action

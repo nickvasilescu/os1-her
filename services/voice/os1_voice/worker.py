@@ -16,8 +16,10 @@ import logging
 import os
 
 from livekit.agents import AgentServer, AgentSession, JobContext, JobProcess, cli, inference, room_io
+from livekit.agents import stt as lk_stt
 from livekit.plugins import fishaudio, silero
 
+from . import free_providers
 from .brain import Brain
 from .bus import Bus, Phase
 from .config import Settings, Voice, voices
@@ -54,7 +56,13 @@ async def on_text_input(sess: AgentSession, ev: room_io.TextInputEvent) -> None:
         sess.generate_reply(user_input=ev.text)
 
 
-def make_tts(voice: Voice) -> fishaudio.TTS:
+FREE = free_providers.enabled()
+
+
+def make_tts(voice: Voice):
+    if FREE:
+        # One voice from the UAO server's chain (Gemini -> Piper -> MiniMax); UAOS1_TTS_VOICE overrides it.
+        return free_providers.JarvisTTS()
     if not voice.reference_id:
         log.warning("Fish voice %s has no reference_id; Fish will use its default voice", voice.key)
     return fishaudio.TTS(
@@ -91,16 +99,28 @@ async def entrypoint(ctx: JobContext) -> None:
     orch = OrchestratorClient()
     router = TurnRouter(jev)
     work = WorkManager(runs, bus, orch=orch)
-    brain = Brain("drama3")
+    brain = free_providers.JarvisBrain() if FREE else Brain("drama3")
+    log.info("voice providers: %s", "free (UAO Jarvis STT/TTS/brain)" if FREE else "fish + anthropic")
     engines: list[TurnEngine] = []
 
+    vad = ctx.proc.userdata["vad"]
     session = AgentSession(
-        vad=ctx.proc.userdata["vad"],
-        stt=fishaudio.STT(),
+        vad=vad,
+        stt=lk_stt.StreamAdapter(stt=free_providers.JarvisSTT(), vad=vad) if FREE else fishaudio.STT(),
         # Unused for Samantha (SamanthaAgent.llm_node streams from Brain); kept so the session has an LLM.
         llm=voice_llm(settings, new_session_id("voice")),
         tts=make_tts(registry[profile.get("voice_key") or settings.default_voice]),
-        turn_handling={"turn_detection": inference.TurnDetector()},
+        # Self-hosted LiveKit has no hosted turn detector: end turns on silence, and never start
+        # a slow Jarvis turn speculatively.
+        turn_handling=(
+            {
+                "turn_detection": "vad",
+                "endpointing": {"min_delay": 0.7, "max_delay": 3.0},
+                "preemptive_generation": {"enabled": False},
+            }
+            if FREE
+            else {"turn_detection": inference.TurnDetector()}
+        ),
     )
 
     def samantha(voice_key: str, *, first_meeting: bool) -> SamanthaAgent:
@@ -141,6 +161,10 @@ async def entrypoint(ctx: JobContext) -> None:
         else:
             session.update_agent(samantha(dossier.voice_key, first_meeting=True))
 
+    if FREE and not profile.get("onboarded") and os.environ.get("UAOS1_SKIP_ONBOARDING", "1") == "1":
+        # UAOS1 is already set up: no Her-style operator interview.
+        await profiles.patch(onboarded=True, voice_key=settings.default_voice)
+        profile = {**profile, "onboarded": True}
     if profile.get("onboarded"):
         agent = samantha(profile.get("voice_key", settings.default_voice), first_meeting=False)
     else:

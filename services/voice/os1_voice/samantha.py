@@ -23,7 +23,7 @@ log = logging.getLogger("os1.samantha")
 
 
 class SamanthaAgent(Agent):
-    def __init__(self, *, engine: TurnEngine, brain: Brain, bus: Bus, tts: Any, voice_key: str) -> None:
+    def __init__(self, *, engine: TurnEngine, brain: Brain | Any, bus: Bus, tts: Any, voice_key: str) -> None:
         super().__init__(instructions="(persona lives in os1_voice.brain)", tts=tts)
         self._engine = engine
         self._brain = brain
@@ -33,6 +33,15 @@ class SamanthaAgent(Agent):
         self._spoke_since_hello = False
         self._next_note: str | None = None
         engine.work.narrate = self._narrate
+        if hasattr(brain, "on_late"):
+            brain.on_late = self._say_late
+
+    def _say_late(self, text: str) -> None:
+        """A slow answer arrived after you had moved on; say it now rather than drop it."""
+        try:
+            self.session.say(f"About that: {text}")
+        except RuntimeError as exc:  # session already closed
+            log.debug("late answer dropped: %s", exc)
 
     async def on_enter(self) -> None:
         await self._bus.set_voice(self._voice_key)

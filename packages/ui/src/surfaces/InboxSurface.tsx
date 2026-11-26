@@ -1,4 +1,5 @@
 import { SayChips } from "../components/SayChips";
+import { useNarrow } from "../components/useNarrow";
 import type { InboxItem } from "../types";
 
 /**
@@ -16,11 +17,13 @@ export function InboxSurface({
   onAction: (action: string, payload?: Record<string, unknown>) => void;
   onBack: () => void;
 }) {
+  const narrow = useNarrow();
   const shown = compact ? items.slice(0, 4) : items;
   const newsletterCount = items.filter((m) => m.keeper_score < 0.35 || m.category === "newsletter").length;
 
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
@@ -32,17 +35,17 @@ export function InboxSurface({
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             07 · Spatial Inbox
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>
             {items.length} waiting
             {newsletterCount > 0 ? ` · ${newsletterCount} ${newsletterCount === 1 ? "newsletter" : "newsletters"}` : ""}
           </h2>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {newsletterCount > 0 && (
             <button type="button" className="os1-pill" onClick={() => onAction("trash_newsletters")}>
               “Trash the newsletters”
@@ -61,7 +64,7 @@ export function InboxSurface({
         className="os1-scroll"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gridTemplateColumns: narrow ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))",
           gap: 16,
           alignContent: "start",
         }}

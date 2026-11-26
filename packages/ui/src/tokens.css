@@ -95,6 +95,9 @@ html, body, #root {
 }
 
 input::placeholder { color: var(--on-coral-faint); }
+/* Fields on paper cards need ink placeholders, not coral ones. */
+.os1-paper-card input::placeholder,
+.os1-paper-card textarea::placeholder { color: var(--ink-dim); opacity: 0.7; }
 
 /* Surfaces arrive softly: fade + a breath of blur, like focusing your eyes. */
 .os1-surface {
@@ -212,4 +215,103 @@ input::placeholder { color: var(--on-coral-faint); }
 
 @media (prefers-reduced-motion: reduce) {
   .os1-fade, .os1-surface { animation: none; }
+}
+
+/* Phone-width screens (UAOS1 for Android, or a narrow window). */
+@media (max-width: 760px) {
+  .os1-display { font-size: 46px; line-height: 48px; }
+  .os1-spoken { font-size: 26px; line-height: 36px; overflow-wrap: break-word; word-break: break-word; }
+  .os1-lead { font-size: 17px; line-height: 25px; overflow-wrap: break-word; }
+  .os1-heard { font-size: 16px; overflow-wrap: break-word; }
+
+  .os1-dock {
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+    transform: none;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    opacity: 0.94;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 8px;
+    box-shadow: 0 8px 32px rgba(29, 10, 5, 0.45);
+  }
+  .os1-dock::-webkit-scrollbar { display: none; }
+  .os1-dock button {
+    flex: 1 1 auto;
+    scroll-snap-align: center;
+    padding: 6px 6px;
+    font-size: 11px;
+  }
+  .os1-dock { justify-content: space-between; }
+  .os1-dock-more {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: max(62px, calc(env(safe-area-inset-bottom, 0px) + 60px));
+    z-index: 41;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px;
+    border-radius: 20px;
+    background: rgba(48, 22, 14, 0.86);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(29, 10, 5, 0.45);
+  }
+  .os1-dock-more button {
+    font: 500 11px/1 var(--font-sans);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--on-coral);
+    background: rgba(255, 253, 249, 0.08);
+    border: 0;
+    border-radius: 12px;
+    padding: 15px 6px;
+    cursor: pointer;
+  }
+  .os1-dock-more button[data-active="true"] { background: var(--paper); color: var(--coral-deep); }
+
+  .os1-surface {
+    padding: max(16px, calc(env(safe-area-inset-top, 0px) + 12px)) 16px max(76px, calc(env(safe-area-inset-bottom, 0px) + 76px));
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Older full-screen pages (Home, Swarm, Inbox, Canvas, My Mac, Memory, Connectors, Voice):
+     phone padding, wrapping header rows, one column, smaller titles. */
+  .os1-hide-narrow { display: none !important; }
+  .os1-talk { width: calc(100vw - 28px); max-width: calc(100vw - 28px) !important; }
+  .os1-talk .os1-spoken { min-height: 0 !important; overflow-wrap: anywhere; }
+
+  .os1-page {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: max(16px, calc(env(safe-area-inset-top, 0px) + 14px)) 16px max(86px, calc(env(safe-area-inset-bottom, 0px) + 86px)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    align-content: start !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .os1-page h2 { font-size: 28px !important; line-height: 1.15 !important; }
+  .os1-page [style*="justify-content: space-between"] { flex-wrap: wrap !important; row-gap: 10px !important; }
+  .os1-page [style*="grid-template-columns"]:not([style*="78px"]) { grid-template-columns: 1fr !important; }
+  .os1-page [style*="grid-template-rows"] { grid-template-rows: none !important; }
+  .os1-page .os1-paper-card, .os1-page .os1-studio-card {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .os1-page button { white-space: nowrap; }
+  .os1-page > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  .os1-page form { flex-wrap: wrap; }
+  .os1-page form input { min-width: 0; flex: 1 1 160px; }
 }

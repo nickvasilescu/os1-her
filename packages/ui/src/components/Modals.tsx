@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNarrow } from "./useNarrow";
 import type { ActiveSurface, PendingAction, RememberedShimmer, UndoToast } from "../types";
 
 /**
@@ -163,24 +164,63 @@ const DOCK_ITEMS: { surface: ActiveSurface; label: string }[] = [
   { surface: "swarm", label: "Swarm" },
   { surface: "made_just_now", label: "Canvas" },
   { surface: "memory", label: "Memory" },
-  { surface: "connectors", label: "Apps" },
+  { surface: "atlas", label: "Atlas" },
+  { surface: "apps", label: "Services" },
+  { surface: "connectors", label: "Connectors" },
   { surface: "voice_picker", label: "Voice" },
 ];
 
-/** Quiet bottom whisper dock so every Paper surface is reachable by voice OR pointer. */
+const PHONE_PRIMARY: ActiveSurface[] = ["conversation", "home", "inbox_cascade", "atlas", "apps"];
+
+/** Quiet bottom whisper dock so every Paper surface is reachable by voice OR pointer.
+ *  On a phone it shows five main places plus "More", which opens the rest as a sheet. */
 export function AmbientDock({ active, onSelect }: { active: ActiveSurface; onSelect: (s: ActiveSurface) => void }) {
+  const dockRef = useRef<HTMLElement>(null);
+  const narrow = useNarrow();
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = dockRef.current?.querySelector<HTMLButtonElement>('button[data-active="true"]');
+    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [active]);
+  useEffect(() => setMore(false), [active]);
+
+  const pick = (s: ActiveSurface) => {
+    setMore(false);
+    onSelect(s);
+  };
+  const primary = narrow ? DOCK_ITEMS.filter((i) => PHONE_PRIMARY.includes(i.surface)) : DOCK_ITEMS;
+  const rest = DOCK_ITEMS.filter((i) => !PHONE_PRIMARY.includes(i.surface));
+  const activeInRest = narrow && rest.some((i) => i.surface === active);
+
   return (
-    <nav className="os1-dock" aria-label="OS1 surfaces">
-      {DOCK_ITEMS.map((item) => (
-        <button
-          key={item.surface}
-          type="button"
-          data-active={active === item.surface}
-          onClick={() => onSelect(item.surface)}
-        >
-          {item.label}
-        </button>
-      ))}
-    </nav>
+    <>
+      {narrow && more && (
+        <div className="os1-dock-more" role="menu" aria-label="More places">
+          {rest.map((item) => (
+            <button
+              key={item.surface}
+              type="button"
+              role="menuitem"
+              data-active={active === item.surface}
+              onClick={() => pick(item.surface)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <nav ref={dockRef} className="os1-dock" aria-label="OS1 surfaces">
+        {primary.map((item) => (
+          <button key={item.surface} type="button" data-active={active === item.surface} onClick={() => pick(item.surface)}>
+            {item.label}
+          </button>
+        ))}
+        {narrow && (
+          <button type="button" data-active={more || activeInRest} aria-expanded={more} onClick={() => setMore((m) => !m)}>
+            {activeInRest && !more ? (rest.find((i) => i.surface === active)?.label ?? "More") : "More"}
+          </button>
+        )}
+      </nav>
+    </>
   );
 }

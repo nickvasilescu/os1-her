@@ -8,7 +8,7 @@ interface Props {
 export function SayChips({ chips, onSay }: Props) {
   if (!chips.length) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }} className="os1-fade">
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 12 }} className="os1-fade">
       <span className="os1-label" style={{ fontSize: 11, color: "var(--on-coral-dim)", marginRight: 4 }}>
         Say
       </span>

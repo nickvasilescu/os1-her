@@ -31,8 +31,10 @@ from .bus import StateHub
 from .cards import CanvasPayload, validate_cards
 from .composio_client import ComposioClient
 from .director import MEMORY_THRESHOLD, JevDirector
+from .memory_sync import MemorySync
 from .pills import match_pill
 from .store import CONNECTOR_POLICIES, DEFAULT_PROFILE, MEMORY_CATEGORIES, Os1Store
+from .uao import routes as uao_routes
 
 if os.environ.get("OS1_SKIP_DOTENV") != "1":
     load_dotenv(Path(__file__).resolve().parents[3] / ".env")
@@ -49,6 +51,7 @@ HERMES_API_KEY = os.environ.get("HERMES_API_KEY", "")
 VNC_UPSTREAM_WS = os.environ.get("OS1_VNC_UPSTREAM_WS", "ws://127.0.0.1:6080/websockify")
 
 store = Os1Store(STATE_DIR)
+memory_sync = MemorySync(STATE_DIR)
 hub = StateHub(store)
 director = JevDirector()
 composio = ComposioClient()
@@ -71,7 +74,7 @@ def require_client(authorization: str = Header(default="")) -> None:
         raise HTTPException(401, "unauthorized")
 
 
-app = FastAPI(title="OS1 orchestrator")
+app = FastAPI(title="UAOS1 orchestrator")
 authed = [Depends(require_client)]
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +83,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(uao_routes.build_router(hub, authed))
+hub.pill_providers["apps"] = uao_routes.app_pills
+
+
+async def _uao_prefetch_loop() -> None:
+    """Keep the app catalogue warm so 'open jellyfin' works by voice before the surface is visited."""
+    while True:
+        try:
+            await uao_routes.fetch_apps()
+        except Exception as exc:  # noqa: BLE001 - server may be offline; voice fallback just won't match
+            log.debug("uao app prefetch skipped: %s", exc)
+        await asyncio.sleep(300)
+
+
+@app.on_event("startup")
+async def _start_uao_prefetch() -> None:
+    if os.environ.get("OS1_UAO_PREFETCH", "1") == "1":
+        asyncio.ensure_future(_uao_prefetch_loop())
+
+
+hub.pill_providers["atlas"] = lambda: [{"phrase": "Back to talking", "target": "surface", "action": "conversation"}]
 
 
 def read_profile() -> dict[str, Any]:
@@ -227,7 +253,9 @@ def token(req: TokenRequest) -> dict[str, Any]:
         .with_room_config(api.RoomConfiguration(agents=[api.RoomAgentDispatch(agent_name=AGENT_NAME)]))
         .to_jwt()
     )
-    return {"engine": "drama3", "url": url, "token": jwt, "room": room}
+    # The worker reaches LiveKit locally; apps on other devices need its tailnet address.
+    public = os.environ.get("LIVEKIT_PUBLIC_URL", "").strip() or url
+    return {"engine": "drama3", "url": public, "token": jwt, "room": room}
 
 
 # ------------------------------------------------------------------ Realtime State Bus (WS + HTTP)
@@ -474,6 +502,23 @@ async def _dispatch_matched(target: str, action: str, payload: dict[str, Any], p
         await hub.set_surface(action)
         return {"matched": True, "target": target, "action": action, "reply": f"Showing {action.replace('_', ' ')}."}
 
+    if target == "uao_app":
+        app_ = uao_routes.find_app(action)
+        if app_ is None:
+            return {"matched": True, "target": target, "action": action, "reply": "I can't find that app."}
+        await hub.set_surface("apps")
+        await hub.broadcast({"type": "open_app", "appId": app_["id"]})
+        return {"matched": True, "target": target, "action": action, "reply": f"Opening {app_['name']}."}
+
+    if target == "moonlight":
+        await hub.set_surface("her_computer")
+        await hub.broadcast({"type": "moonlight_stream"})
+        return {"matched": True, "target": target, "action": action, "reply": "Opening the desktop stream in Moonlight."}
+
+    if target == "uao" and action == "refresh_apps":
+        await hub.broadcast({"type": "refresh_apps"})
+        return {"matched": True, "target": target, "action": action, "reply": "Refreshing."}
+
     if target == "connect":
         res = await _start_connector_flow(action)
         return {"matched": True, "target": target, "action": action, "result": res, "reply": res.get("reply", "")}
@@ -522,6 +567,9 @@ async def handle_action(req: ActionRequest) -> dict[str, Any]:
         has_undo=store.latest_undo() is not None,
     )
     if hit is None:
+        app_hit = uao_routes.match_app_utterance(req.phrase)
+        if app_hit is not None:
+            return await _dispatch_matched("uao_app", app_hit["id"], req.payload, req.phrase)
         return {"matched": False}
     return await _dispatch_matched(hit.target, hit.action, {**hit.payload, **req.payload}, hit.phrase)
 
@@ -652,6 +700,7 @@ async def respond_approval(action_id: str, req: ApprovalRespondRequest) -> dict[
     elif pa.source == "memory" and req.choice == "forget":
         deleted = store.forget_memory(memory_id=pa.meta.get("memory_id"), query=pa.meta.get("query"))
         asyncio.ensure_future(_trigger_hermes_forget(deleted))
+        asyncio.ensure_future(memory_sync.forgotten(deleted))
         await hub.broadcast()
         reply = "It's gone — really gone." if deleted else "Nothing matched."
     elif pa.source == "inbox" and req.choice == "confirm_trash":
@@ -722,14 +771,22 @@ class MemoryCreateRequest(BaseModel):
 
 
 @app.get("/os1/memories", dependencies=authed)
-def list_memories(category: str | None = None, query: str | None = None) -> dict[str, Any]:
-    return {"categories": list(MEMORY_CATEGORIES), "items": store.list_memories(category=category, query=query)}
+async def list_memories(category: str | None = None, query: str | None = None) -> dict[str, Any]:
+    atlas = await memory_sync.from_atlas() if not category else []
+    if query:
+        atlas = [a for a in atlas if query.lower() in a["text"].lower()]
+    return {
+        "categories": list(MEMORY_CATEGORIES),
+        "items": store.list_memories(category=category, query=query),
+        "atlas": atlas,
+    }
 
 
 @app.post("/os1/memories", dependencies=authed)
 async def create_memory(req: MemoryCreateRequest) -> dict[str, Any]:
     mem = store.add_memory(category=req.category, summary=req.summary, detail=req.detail, source=req.source)
     await hub.notify_remembered(mem)
+    asyncio.ensure_future(memory_sync.added(mem))
     return mem
 
 
@@ -765,6 +822,7 @@ async def forget_memory(req: ForgetRequest) -> dict[str, Any]:
 
     deleted = store.forget_memory(memory_id=req.memory_id, query=req.query)
     asyncio.ensure_future(_trigger_hermes_forget(deleted))
+    asyncio.ensure_future(memory_sync.forgotten(deleted))
     await hub.broadcast()
     return {"ok": True, "deleted": deleted}
 
@@ -952,11 +1010,23 @@ async def her_computer_vnc_session() -> dict[str, Any]:
                     password = str(r.json().get("password") or "")
         except Exception as exc:  # noqa: BLE001
             log.warning("orgo vnc-password fetch failed: %s", exc)
+    if not (api_key and cid) and not os.environ.get("OS1_VNC_UPSTREAM_WS", "").strip():
+        # No Orgo and no VNC stream of our own: show the server's remote-desktop gateway (Guacamole)
+        # in an in-app view instead. Tailnet/LAN only.
+        from .uao import client as uao_client
+
+        url = os.environ.get("OS1_HER_COMPUTER_URL", "").strip() or f"{uao_client.uao_base()}/guacamole/"
+        if not uao_client.is_allowed_url(url):
+            raise HTTPException(400, "OS1_HER_COMPUTER_URL must be a tailnet or LAN address")
+        label = "Guacamole on your server" if "/guacamole" in url else "Moonlight-Web on your server" if ":8461" in url else "Your server's desktop"
+        return {"mode": "embed", "embedUrl": url, "label": label}
     return {
+        "mode": "vnc",
         "wsPath": "/os1/her-computer/vnc",
         "password": password,
         "readOnlyDefault": True,
         "resolution": "1920x1080",
+        "upstream": "Orgo cloud" if (api_key and cid) else VNC_UPSTREAM_WS,
     }
 
 

@@ -1,0 +1,20 @@
+{
+  "appId": "co.tonysplace.uaos1",
+  "appName": "UAOS1",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "contain",
+      "style": "DARK"
+    }
+  },
+  "backgroundColor": "#cd4f33"
+}

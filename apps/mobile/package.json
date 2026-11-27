@@ -1,0 +1,28 @@
+{
+  "name": "@os1/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "UAOS1 for Android (Capacitor) \u2014 same UI as the desktop app, talking to the server-hosted orchestrator",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "sync": "vite build && cap sync android",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/app-launcher": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.6.3",
+    "@os1/ui": "^0.1.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.3",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

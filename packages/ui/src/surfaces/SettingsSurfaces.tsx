@@ -1,5 +1,6 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { SayChips } from "../components/SayChips";
+import { useNarrow } from "../components/useNarrow";
 import type { ConnectorItem, ConnectorPolicy, MemoryCategory, MemoryItem, VoiceSettings } from "../types";
 
 const POLICY_CYCLE: ConnectorPolicy[] = ["full_access", "ask_before_write", "read_only", "ask_every_time"];
@@ -19,6 +20,7 @@ export function ConnectorsSurface({
   onConnect: (slug: string) => Promise<{ ok: boolean; redirect_url?: string; message?: string }>;
   onBack: () => void;
 }) {
+  const narrow = useNarrow();
   const [notice, setNotice] = useState<string | null>(null);
 
   const cyclePolicy = (c: ConnectorItem) => {
@@ -39,6 +41,7 @@ export function ConnectorsSurface({
 
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
@@ -50,19 +53,19 @@ export function ConnectorsSurface({
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             13 · Connectors · Composio
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>What she can reach</h2>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>What she can reach</h2>
         </div>
         <button type="button" className="os1-pill" onClick={onBack}>
           Back to talking
         </button>
       </div>
 
-      <div className="os1-paper-card os1-scroll" style={{ padding: "12px 26px", display: "grid", alignContent: "start" }}>
+      <div className="os1-paper-card os1-scroll" style={{ padding: narrow ? "12px 16px" : "12px 26px", display: "grid", alignContent: "start" }}>
         {connectors.map((c, idx) => (
           <div
             key={c.slug}
@@ -70,18 +73,19 @@ export function ConnectorsSurface({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              gap: 16,
-              padding: "18px 0",
+              gap: 14,
+              flexWrap: "wrap",
+              padding: "16px 0",
               borderBottom: idx < connectors.length - 1 ? "1px solid var(--ink-faint)" : "none",
             }}
           >
-            <div>
-              <div style={{ font: "400 20px/1.2 var(--font-sans)", color: "var(--ink)" }}>{c.spoken_status}</div>
-              <div className="os1-mono" style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 4 }}>
+            <div style={{ minWidth: 0, flex: "1 1 180px" }}>
+              <div style={{ font: "400 20px/1.2 var(--font-sans)", color: "var(--ink)", overflowWrap: "break-word" }}>{c.spoken_status}</div>
+              <div className="os1-mono" style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 4, overflowWrap: "break-word" }}>
                 {c.slug} {c.account_label ? `· ${c.account_label}` : ""}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
               <button type="button" className="os1-pill-ink" onClick={() => cyclePolicy(c)}>
                 Change rule
               </button>
@@ -120,6 +124,7 @@ export function VoiceSurface({
   onSay: (phrase: string) => void;
   onBack: () => void;
 }) {
+  const narrow = useNarrow();
   const presets = [
     { key: "voice_1_warm", name: "Voice I", desc: "Warm · unhurried · Fish Drama 3", speed: 0.96, temperature: 0.72 },
     { key: "voice_2_bright", name: "Voice II", desc: "Bright · lively · Fish Drama 3", speed: 1.05, temperature: 0.65 },
@@ -128,6 +133,7 @@ export function VoiceSurface({
 
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
@@ -139,12 +145,12 @@ export function VoiceSurface({
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             14 · Voice
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>How she sounds</h2>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>How she sounds</h2>
         </div>
         <button type="button" className="os1-pill" onClick={onBack}>
           Back to talking
@@ -152,7 +158,7 @@ export function VoiceSurface({
       </div>
 
       <div style={{ display: "grid", gap: 20, alignContent: "start" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 16 }}>
           {presets.map((p) => {
             const active = voice.voiceKey === p.key;
             return (
@@ -180,7 +186,7 @@ export function VoiceSurface({
           })}
         </div>
 
-        <div className="os1-paper-card" style={{ padding: 26, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+        <div className="os1-paper-card" style={{ padding: 26, display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 28 }}>
           <label style={{ display: "grid", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span className="os1-label" style={{ color: "var(--ink-dim)" }}>
@@ -236,22 +242,39 @@ const MEMORY_META: { key: MemoryCategory; label: string; color: string }[] = [
 /**
  * Paper 15 — Memory Ledger: 5 warm categories with real hard-delete ("Yes, forget it" cascade).
  */
+export type AtlasMemoryItem = { id: string; text: string; agentName: string; createdAt?: number };
+
 export function MemorySurface({
   memories,
   onAdd,
   onForget,
   onBack,
+  loadAtlas,
 }: {
   memories: MemoryItem[];
   onAdd: (category: MemoryCategory, summary: string) => void;
   onForget: (memoryId: string) => void;
   onBack: () => void;
+  /** What Atlas agents remember (shared memory); Samantha's own memories are mirrored into Atlas. */
+  loadAtlas?: () => Promise<AtlasMemoryItem[]>;
 }) {
-  const [cat, setCat] = useState<MemoryCategory | "all">("all");
+  const narrow = useNarrow();
+  const [cat, setCat] = useState<MemoryCategory | "all" | "atlas">("all");
+  const [atlas, setAtlas] = useState<AtlasMemoryItem[]>([]);
+  useEffect(() => {
+    if (!loadAtlas) return;
+    let alive = true;
+    loadAtlas()
+      .then((a) => alive && setAtlas(a))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [loadAtlas]);
   const [draft, setDraft] = useState("");
   const [draftCat, setDraftCat] = useState<MemoryCategory>("things_you_love");
 
-  const filtered = cat === "all" ? memories : memories.filter((m) => m.category === cat);
+  const filtered = cat === "all" ? memories : cat === "atlas" ? [] : memories.filter((m) => m.category === cat);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -262,6 +285,7 @@ export function MemorySurface({
 
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
@@ -273,12 +297,12 @@ export function MemorySurface({
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             15 · Memory · Really gone when forgotten
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>What she remembers</h2>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>What she remembers</h2>
         </div>
         <button type="button" className="os1-pill" onClick={onBack}>
           Back to talking
@@ -306,6 +330,16 @@ export function MemorySurface({
             {m.label}
           </button>
         ))}
+        {atlas.length > 0 && (
+          <button
+            type="button"
+            className="os1-pill"
+            style={{ background: cat === "atlas" ? "var(--paper)" : undefined, color: cat === "atlas" ? "var(--coral-deep)" : undefined }}
+            onClick={() => setCat("atlas")}
+          >
+            From Atlas ({atlas.length})
+          </button>
+        )}
       </div>
 
       {/* Ledger list */}
@@ -313,12 +347,21 @@ export function MemorySurface({
         className="os1-scroll"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gridTemplateColumns: narrow ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))",
           gap: 14,
           alignContent: "start",
         }}
       >
-        {filtered.length === 0 ? (
+        {cat === "atlas" ? (
+          atlas.map((a) => (
+            <div key={a.id} className="os1-paper-card" style={{ padding: "18px 20px", display: "grid", gap: 8 }}>
+              <span className="os1-mono" style={{ fontSize: 10, color: "var(--ink-dim)" }}>
+                ATLAS · {a.agentName.toUpperCase()}
+              </span>
+              <div style={{ font: "400 15px/1.45 var(--font-sans)", color: "var(--ink)" }}>{a.text}</div>
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
           <div className="os1-glass" style={{ gridColumn: "1 / -1", padding: 32, textAlign: "center" }}>
             <p className="os1-lead" style={{ margin: 0 }}>
               Nothing saved here yet.

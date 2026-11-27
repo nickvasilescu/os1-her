@@ -13,6 +13,8 @@ import type {
   AgentState,
   ConnectorPolicy,
   MemoryCategory,
+  ApiFetch,
+  Os1BusEvent,
   Os1BusState,
   Os1Config,
   Os1State,
@@ -21,6 +23,11 @@ import type {
 } from "./types";
 
 export type { AgentState, Os1BusState, Os1Config, Os1State, Phase, WorkItem };
+
+/** Her computer: a noVNC stream (Orgo or your own websockify) or an in-app web view (e.g. Guacamole). */
+export type VncSession =
+  | { mode?: "vnc"; wsPath: string; password: string; readOnlyDefault: boolean; resolution: string; upstream?: string }
+  | { mode: "embed"; embedUrl: string; label?: string };
 
 const INITIAL: Os1State = {
   connection: "idle",
@@ -89,6 +96,15 @@ export function useOs1(config: Os1Config) {
   const events = useRef<{ close: () => void } | null>(null);
   const switching = useRef(false);
   const connectRef = useRef<(name?: string) => Promise<void>>(async () => {});
+  const listeners = useRef(new Set<(ev: Os1BusEvent) => void>());
+
+  /** Subscribe to non-snapshot bus frames (open_app, refresh_apps, …). Returns an unsubscribe. */
+  const onEvent = useCallback((fn: (ev: Os1BusEvent) => void) => {
+    listeners.current.add(fn);
+    return () => {
+      listeners.current.delete(fn);
+    };
+  }, []);
 
   const apiFetch = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -137,6 +153,9 @@ export function useOs1(config: Os1Config) {
           try {
             const data = JSON.parse(String(ev.data)) as Partial<Os1BusState> & { type?: string; url?: string };
             if (data.type === "snapshot") applySnapshot(data);
+            else if (data.type && data.type !== "pong" && data.type !== "open_url") {
+              listeners.current.forEach((fn) => fn(data as Os1BusEvent));
+            }
             else if (data.type === "open_url" && typeof data.url === "string" && data.url.startsWith("https://connect.composio.dev/")) {
               window.open(data.url, "_blank", "noopener");
             }
@@ -198,7 +217,26 @@ export function useOs1(config: Os1Config) {
           method: "POST",
           body: JSON.stringify({ name }),
         });
-        if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).detail ?? `token ${resp.status}`);
+        if (!resp.ok) {
+          const detail = String((await resp.json().catch(() => ({}))).detail ?? `token ${resp.status}`);
+          if (resp.status === 503 && /livekit/i.test(detail)) {
+            // No LiveKit on this machine: open UAOS1 without live voice instead of blocking at the door.
+            if (name?.trim()) {
+              await apiFetch("/os1/profile", { method: "PATCH", body: JSON.stringify({ name: name.trim() }) }).catch(() => undefined);
+            }
+            setState((s) => ({
+              ...s,
+              connection: "connected",
+              voiceOff: true,
+              phase: "active",
+              agentState: "idle",
+              chips: ["Open Atlas", "Show apps and services"],
+              agentLine: "Voice is off on this Mac (LiveKit isn't set up). Atlas, Services and the rest work — use the dock or tap below.",
+            }));
+            return;
+          }
+          throw new Error(detail);
+        }
         const t = (await resp.json()) as TokenResponse;
         const { url, token } = t;
         engine.current = t.engine ?? "drama3";
@@ -383,7 +421,7 @@ export function useOs1(config: Os1Config) {
   const fetchVncSession = useCallback(async () => {
     const res = await apiFetch("/os1/her-computer/vnc-session", { method: "POST" });
     if (!res.ok) throw new Error(`VNC session failed (${res.status})`);
-    return (await res.json()) as { wsPath: string; password: string; readOnlyDefault: boolean; resolution: string };
+    return (await res.json()) as VncSession;
   }, [apiFetch]);
 
   const disconnect = useCallback(async () => {
@@ -414,6 +452,8 @@ export function useOs1(config: Os1Config) {
   return {
     state,
     bus,
+    apiFetch: apiFetch as ApiFetch,
+    onEvent,
     levels,
     connect,
     say,

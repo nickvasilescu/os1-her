@@ -1,3 +1,4 @@
+import { useNarrow } from "../components/useNarrow";
 import type { CanvasState, Os1Card, SpeakableAction } from "../types";
 
 /**
@@ -15,9 +16,11 @@ export function CanvasSurface({
   onSay: (phrase: string) => void;
   onBack: () => void;
 }) {
+  const narrow = useNarrow();
   const cards = canvas?.cards ?? [];
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
@@ -29,12 +32,12 @@ export function CanvasSurface({
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             12 · Made just now
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>
             {canvas?.title || "Made just now"}
           </h2>
           {canvas?.subtitle && (
@@ -52,7 +55,7 @@ export function CanvasSurface({
         className="os1-scroll"
         style={{
           display: "grid",
-          gridTemplateColumns: cards.length > 1 ? "repeat(auto-fit, minmax(420px, 1fr))" : "minmax(0, 760px)",
+          gridTemplateColumns: cards.length > 1 ? (narrow ? "1fr" : "repeat(auto-fit, minmax(420px, 1fr))") : (narrow ? "1fr" : "minmax(0, 760px)"),
           justifyContent: "center",
           gap: 22,
           alignContent: "start",

@@ -1,12 +1,17 @@
 import { join } from "node:path";
 import { BrowserWindow, Menu, app, globalShortcut, ipcMain, session, shell } from "electron";
 import { CuaTunnelHost } from "./cuaHost";
+import { EmbedHost } from "./embedHost";
+import { registerMoonlight } from "./moonlightHost";
 
 const ORCHESTRATOR_URL = process.env.OS1_ORCHESTRATOR_URL ?? "http://127.0.0.1:8787";
 const CLIENT_TOKEN = process.env.OS1_CLIENT_TOKEN ?? "";
 const CORAL = "#cd4f33";
 
+app.setName("UAOS1");
+
 const cuaHost = new CuaTunnelHost(ORCHESTRATOR_URL, CLIENT_TOKEN);
+const embedHost = new EmbedHost();
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -14,6 +19,7 @@ function createWindow(): BrowserWindow {
     height: 900,
     minWidth: 960,
     minHeight: 640,
+    title: "UAOS1",
     backgroundColor: CORAL,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     autoHideMenuBar: true,
@@ -73,6 +79,8 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle("os1:cua:revoke", () => cuaHost.revokeAll());
   ipcMain.handle("os1:cua:status", () => cuaHost.status());
+  embedHost.register();
+  registerMoonlight();
 
   if (!process.env.OS1_PREVIEW) {
     cuaHost.start();

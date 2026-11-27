@@ -1,5 +1,6 @@
 import { Presence, type PresenceState } from "../components/Presence";
 import { SayChips } from "../components/SayChips";
+import { useNarrow } from "../components/useNarrow";
 import type { ActiveSurface, MoodState, WorkItem } from "../types";
 
 type Levels = { current: { agent: number; user: number } };
@@ -25,9 +26,10 @@ export function HomeSurface({
   onOpenSurface: (s: ActiveSurface) => void;
   onSay: (phrase: string) => void;
 }) {
+  const narrow = useNarrow();
   const activeRuns = runs.filter((r) => r.status === "running" || r.status === "waiting");
   return (
-    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", padding: "64px 56px 96px" }}>
+    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", overflowY: "auto", overflowX: "hidden", padding: narrow ? "52px 16px 80px" : "64px 56px 96px" }}>
       {/* Soft warm horizon band */}
       <div
         style={{
@@ -42,14 +44,34 @@ export function HomeSurface({
       />
 
       {/* Top corners */}
-      <div className="os1-label" style={{ position: "fixed", top: 44, left: 52, display: "flex", gap: 12, alignItems: "center" }}>
+      <div
+        className="os1-label"
+        style={{
+          position: "fixed",
+          top: narrow ? 14 : 44,
+          left: narrow ? 14 : 52,
+          display: "flex",
+          gap: narrow ? 8 : 12,
+          alignItems: "center",
+          zIndex: 10,
+        }}
+      >
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--paper)" }} />
         <span>Samantha</span>
         <span style={{ color: "var(--on-coral-dim)" }}>
           {activeRuns.length > 0 ? `${activeRuns.length} running` : "Calm horizon"}
         </span>
       </div>
-      <div className="os1-mono" style={{ position: "fixed", top: 44, right: 52, color: "var(--on-coral-dim)" }}>
+      <div
+        className="os1-mono os1-hide-narrow"
+        style={{
+          position: "fixed",
+          top: narrow ? 14 : 44,
+          right: narrow ? "max(14px, env(safe-area-inset-right, 0px))" : 52,
+          color: "var(--on-coral-dim)",
+          zIndex: 10,
+        }}
+      >
         Warmth {Math.round(mood.warmth * 100)}%
       </div>
 
@@ -61,10 +83,10 @@ export function HomeSurface({
           maxWidth: 1080,
           display: "grid",
           justifyItems: "center",
-          gap: 32,
+          gap: narrow ? 20 : 32,
         }}
       >
-        <Presence state={presence} getLevel={() => levels.current.agent} size={340} />
+        <Presence state={presence} getLevel={() => levels.current.agent} size={narrow ? 220 : 340} />
 
         {activeRuns.length > 0 ? (
           <div
@@ -148,25 +170,27 @@ export function SwarmSurface({
   onSay: (phrase: string) => void;
   onBack: () => void;
 }) {
+  const narrow = useNarrow();
   return (
     <div
+      className="os1-page"
       style={{
         position: "fixed",
         inset: 0,
-        padding: "56px 56px 96px",
+        padding: narrow ? "max(14px, calc(env(safe-area-inset-top, 0px) + 12px)) 16px max(80px, calc(env(safe-area-inset-bottom, 0px) + 80px))" : "56px 56px 96px",
         display: "grid",
         gridTemplateRows: "auto 1fr auto",
-        gap: 28,
+        gap: narrow ? 16 : 28,
         maxWidth: 1180,
         margin: "0 auto",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
             11 · Swarm
           </div>
-          <h2 style={{ margin: "6px 0 0", font: "200 40px/1.1 var(--font-sans)" }}>Many of her</h2>
+          <h2 style={{ margin: "6px 0 0", font: `200 ${narrow ? 28 : 40}px/1.1 var(--font-sans)` }}>Many of her</h2>
         </div>
         <button type="button" className="os1-pill" onClick={onBack}>
           Back to talking
@@ -177,7 +201,7 @@ export function SwarmSurface({
         className="os1-scroll"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+          gridTemplateColumns: narrow ? "1fr" : "repeat(auto-fill, minmax(290px, 1fr))",
           gap: 18,
           alignContent: "start",
         }}

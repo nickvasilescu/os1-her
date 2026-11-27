@@ -8,3 +8,6 @@ export { useOs1, type Os1BusState, type Os1Config, type Os1State, type Phase } f
 export { Os1Sound, sound } from "./sound";
 export { StartupSequence } from "./screens/StartupSequence";
 export * from "./types";
+export { createUaoApi, type UaoApi } from "./uao/api";
+export { AppsSurface } from "./surfaces/AppsSurface";
+export { AtlasSurface } from "./surfaces/AtlasSurface";

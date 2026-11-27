@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { moonlightBridge } from "./components/EmbedFrame";
 import { AmbientDock, PendingActionModal, RememberedShimmerBadge, UndoToastBar } from "./components/Modals";
 import { Boot, Conversation, Naming, Preflight, Setup, Waking, presenceFor } from "./screens/Screens";
 import { StartupSequence } from "./screens/StartupSequence";
 import { sound } from "./sound";
+import { AppsSurface } from "./surfaces/AppsSurface";
+import { AtlasSurface } from "./surfaces/AtlasSurface";
 import { CanvasSurface } from "./surfaces/CanvasSurface";
 import { HerComputerSurface, YourComputerSurface } from "./surfaces/ComputerSurfaces";
 import { HomeSurface, SwarmSurface } from "./surfaces/HomeAndSwarm";
 import { InboxSurface } from "./surfaces/InboxSurface";
 import { ConnectorsSurface, MemorySurface, VoiceSurface } from "./surfaces/SettingsSurfaces";
 import type { ActiveSurface, Os1BusState, Os1Config, Os1State, Surface } from "./types";
+import { createUaoApi } from "./uao/api";
 import { INITIAL_BUS, useOs1 } from "./useOs1";
 
 export type { Surface };
@@ -24,9 +28,13 @@ const ACTIVE_SURFACES: ActiveSurface[] = [
   "connectors",
   "voice_picker",
   "memory",
+  "apps",
+  "atlas",
 ];
 
 export function surfaceFor(state: Os1State, busSurface: ActiveSurface = "conversation"): Exclude<Surface, "startup"> {
+  // An unknown surface name from the server would otherwise render a blank screen.
+  if (!ACTIVE_SURFACES.includes(busSurface)) busSurface = "conversation";
   if (state.connection !== "connected") return "preflight";
   switch (state.phase) {
     case "preflight":
@@ -254,7 +262,27 @@ export function App({ config }: { config: Os1Config }) {
   const [previewSurface, setPreviewSurface] = useState<ActiveSurface | null>(preview ? preview.bus.activeSurface : null);
   const [booted, setBooted] = useState(() => Boolean(preview) && !window.location.hash.includes("preview=startup"));
   const [toast, setToast] = useState<string | null>(null);
+  const [openAppId, setOpenAppId] = useState<string | null>(null);
+  const [appsRefreshKey, setAppsRefreshKey] = useState(0);
+  const uaoApi = useMemo(() => createUaoApi(live.apiFetch), [live.apiFetch]);
+  const loadAtlasMemory = useCallback(async () => {
+    const r = await live.apiFetch("/os1/memories");
+    if (!r.ok) return [];
+    const d = (await r.json()) as { atlas?: { id: string; text: string; agentName: string }[] };
+    return d.atlas ?? [];
+  }, [live.apiFetch]);
   useSoundCues(state);
+
+  // Voice: "Open Jellyfin" → orchestrator switches to Apps & services and tells us which app.
+  useEffect(
+    () =>
+      live.onEvent((ev) => {
+        if (ev.type === "open_app" && typeof ev.appId === "string") setOpenAppId(ev.appId);
+        else if (ev.type === "refresh_apps") setAppsRefreshKey((k) => k + 1);
+        else if (ev.type === "moonlight_stream") void moonlightBridge()?.stream();
+      }),
+    [live.onEvent],
+  );
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -278,6 +306,11 @@ export function App({ config }: { config: Os1Config }) {
 
   const activeBusSurface = previewSurface ?? bus.activeSurface;
   const surface: Surface = booted ? surfaceFor(state, activeBusSurface) : "startup";
+
+  // Leaving Apps & services closes the open app; coming back shows the catalogue.
+  useEffect(() => {
+    if (surface !== "apps") setOpenAppId(null);
+  }, [surface]);
 
   const onSelectSurface = (next: ActiveSurface) => {
     sound.tap();
@@ -345,6 +378,8 @@ export function App({ config }: { config: Os1Config }) {
               herComputer={bus.herComputer}
               config={config}
               fetchVncSession={live.fetchVncSession}
+              suspended={Boolean(bus.pendingAction)}
+              uaoApi={uaoApi}
               onBack={() => onSelectSurface("conversation")}
             />
           )}
@@ -376,12 +411,27 @@ export function App({ config }: { config: Os1Config }) {
               onBack={() => onSelectSurface("conversation")}
             />
           )}
+          {surface === "apps" && (
+            <AppsSurface
+              api={uaoApi}
+              openAppId={openAppId}
+              onOpenApp={(id) => {
+                sound.tap();
+                setOpenAppId(id);
+              }}
+              refreshKey={appsRefreshKey}
+              suspended={Boolean(bus.pendingAction)}
+              onBack={() => onSelectSurface("conversation")}
+            />
+          )}
+          {surface === "atlas" && <AtlasSurface api={uaoApi} onBack={() => onSelectSurface("conversation")} />}
           {surface === "memory" && (
             <MemorySurface
               memories={bus.memories}
               onAdd={(category, summary) => void live.addMemory(category, summary)}
               onForget={(id) => void live.requestForgetMemory(id)}
               onBack={() => onSelectSurface("conversation")}
+              loadAtlas={loadAtlasMemory}
             />
           )}
         </div>

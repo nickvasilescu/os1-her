@@ -2,7 +2,7 @@
   "name": "@os1/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "OS1 desktop client",
+  "description": "UAOS1 desktop client",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -20,5 +20,10 @@
     "electron-vite": "^6.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
+  },
+  "productName": "UAOS1",
+  "build": {
+    "appId": "co.tonysplace.uaos1",
+    "productName": "UAOS1"
   }
 }

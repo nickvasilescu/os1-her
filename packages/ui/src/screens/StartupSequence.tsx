@@ -276,7 +276,7 @@ export function StartupSequence({ onDone }: { onDone: () => void }) {
       />
       <div
         ref={markRef}
-        aria-label="OS1"
+        aria-label="UAOS1"
         style={{
           position: "fixed",
           left: 0,
@@ -291,7 +291,7 @@ export function StartupSequence({ onDone }: { onDone: () => void }) {
           pointerEvents: "none",
         }}
       >
-        OS<sup style={{ fontSize: 13, verticalAlign: "top", marginLeft: 1 }}>1</sup>
+        UAOS<sup style={{ fontSize: 13, verticalAlign: "top", marginLeft: 1 }}>1</sup>
       </div>
       <div
         ref={veilRef}

@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { InfinityLoader } from "../components/InfinityLoader";
 import { Presence, type PresenceState } from "../components/Presence";
 import { SayChips } from "../components/SayChips";
+import { useNarrow } from "../components/useNarrow";
 import { sound } from "../sound";
 import type { AgentState, Os1State, WorkItem } from "../useOs1";
 
@@ -19,11 +20,18 @@ function levelGetter(levels: Levels, presence: PresenceState) {
   return () => (presence === "speaking" ? levels.current.agent : levels.current.user);
 }
 
-const corner = (pos: "tl" | "tr" | "bl" | "br" | "bc"): React.CSSProperties => ({
+const corner = (pos: "tl" | "tr" | "bl" | "br" | "bc", narrow = false): React.CSSProperties => ({
   position: "fixed",
-  ...(pos.includes("t") ? { top: 56 } : { bottom: 52 }),
-  ...(pos === "bc" ? { left: 0, right: 0, textAlign: "center" } : pos.includes("l") ? { left: 60 } : { right: 60 }),
+  ...(pos.includes("t")
+    ? { top: narrow ? "max(12px, calc(env(safe-area-inset-top, 0px) + 10px))" : 56 }
+    : { bottom: narrow ? "max(66px, calc(env(safe-area-inset-bottom, 0px) + 66px))" : 52 }),
+  ...(pos === "bc"
+    ? { left: 16, right: 16, textAlign: "center" }
+    : pos.includes("l")
+      ? { left: narrow ? "max(14px, env(safe-area-inset-left, 0px))" : 60 }
+      : { right: narrow ? "max(14px, env(safe-area-inset-right, 0px))" : 60 }),
   color: "var(--on-coral-dim)",
+  zIndex: 10,
 });
 
 /* ------------------------------------------------------------------ preflight */
@@ -39,16 +47,29 @@ export function Preflight({
   error?: string;
 }) {
   const [name, setName] = useState("");
+  const narrow = useNarrow();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onBegin(name.trim());
   };
   return (
-    <form onSubmit={submit} style={{ display: "grid", justifyItems: "center", gap: 36 }} className="os1-fade">
-      <div className="os1-display" style={{ fontSize: 64 }}>
-        OS<sup style={{ fontSize: 22, verticalAlign: "top" }}>1</sup>
+    <form
+      onSubmit={submit}
+      style={{
+        display: "grid",
+        justifyItems: "center",
+        gap: narrow ? 24 : 36,
+        width: "100%",
+        maxWidth: 420,
+        padding: "0 16px",
+        boxSizing: "border-box",
+      }}
+      className="os1-fade"
+    >
+      <div className="os1-display" style={{ fontSize: narrow ? 52 : 64 }}>
+        UAOS<sup style={{ fontSize: narrow ? 18 : 22, verticalAlign: "top" }}>1</sup>
       </div>
-      <label style={{ display: "grid", justifyItems: "center", gap: 14 }}>
+      <label style={{ display: "grid", justifyItems: "center", gap: 14, width: "100%" }}>
         <span className="os1-label" style={{ color: "var(--on-coral-dim)" }}>
           What should it call you?
         </span>
@@ -58,12 +79,13 @@ export function Preflight({
           onChange={(e) => setName(e.target.value)}
           placeholder="Your first name"
           style={{
-            width: 360,
+            width: "100%",
+            maxWidth: 360,
             background: "transparent",
             border: "none",
             borderBottom: "1px solid var(--on-coral-faint)",
             color: "var(--on-coral)",
-            font: "200 34px var(--font-sans)",
+            font: `200 ${narrow ? 28 : 34}px var(--font-sans)`,
             textAlign: "center",
             padding: "6px 0",
             outline: "none",
@@ -87,7 +109,7 @@ export function Preflight({
         {busy ? "Starting…" : "Begin"}
       </button>
       <p className="os1-label" style={{ fontSize: 11, color: "var(--on-coral-dim)", maxWidth: 420, textAlign: "center" }}>
-        OS1 listens through your microphone. You'll be asked to allow it.
+        UAOS1 listens through your microphone. You'll be asked to allow it.
       </p>
       {error && <p style={{ color: "var(--paper)", font: "300 15px var(--font-sans)" }}>{error}</p>}
     </form>
@@ -97,28 +119,29 @@ export function Preflight({
 /* ------------------------------------------------------------------ 01 boot */
 
 export function Boot({ levels }: { levels: Levels }) {
+  const narrow = useNarrow();
   return (
     <>
-      <div style={{ ...corner("tl"), display: "flex", alignItems: "baseline", gap: 18, color: "var(--on-coral)" }}>
-        <span style={{ font: "200 30px var(--font-sans)" }}>
-          OS<sup style={{ fontSize: 13 }}>1</sup>
+      <div style={{ ...corner("tl", narrow), display: "flex", alignItems: "baseline", gap: 18, color: "var(--on-coral)" }}>
+        <span style={{ font: `200 ${narrow ? 24 : 30}px var(--font-sans)` }}>
+          UAOS<sup style={{ fontSize: 13 }}>1</sup>
         </span>
         <span className="os1-mono">Build 1.0</span>
       </div>
-      <div className="os1-mono" style={corner("tr")}>
+      <div className="os1-mono" style={corner("tr", narrow)}>
         Voice-first realtime core
       </div>
-      <div style={{ display: "grid", justifyItems: "center", gap: 40 }} className="os1-fade">
-        <Presence state="listening" getLevel={() => levels.current.agent * 0.4} size={360} />
+      <div style={{ display: "grid", justifyItems: "center", gap: narrow ? 24 : 40, width: "100%", padding: "0 16px", boxSizing: "border-box" }} className="os1-fade">
+        <Presence state="listening" getLevel={() => levels.current.agent * 0.4} size={narrow ? 220 : 360} />
         <Progress fraction={0.05} animate seconds={14} />
         <span className="os1-label" style={{ fontSize: 11 }}>
-          Initializing your OS¹
+          Initializing UAOS¹
         </span>
       </div>
-      <div className="os1-mono" style={corner("bl")}>
+      <div className="os1-mono" style={corner("bl", narrow)}>
         Audio · full-duplex ready
       </div>
-      <div className="os1-mono" style={corner("br")}>
+      <div className="os1-mono" style={corner("br", narrow)}>
         Mic on · camera off
       </div>
     </>
@@ -165,32 +188,33 @@ const SETUP_STEP: Partial<Record<Os1State["phase"], number>> = {
 };
 
 export function Setup({ state, levels, onSay }: { state: Os1State; levels: Levels; onSay: (p: string) => void }) {
+  const narrow = useNarrow();
   const step = SETUP_STEP[state.phase] ?? 1;
   const presence = state.agentState === "speaking" ? "listening" : "listening";
   return (
     <>
-      <div style={{ ...corner("tl"), display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ ...corner("tl", narrow), display: "flex", alignItems: "center", gap: 10 }}>
         {[1, 2, 3, 4, 5].map((i) => (
           <span
             key={i}
-            style={{ width: 28, height: 2, background: i <= step ? "var(--paper)" : "var(--on-coral-faint)" }}
+            style={{ width: narrow ? 18 : 28, height: 2, background: i <= step ? "var(--paper)" : "var(--on-coral-faint)" }}
           />
         ))}
-        <span className="os1-label" style={{ fontSize: 11, marginLeft: 16, color: "var(--on-coral)" }}>
+        <span className="os1-label" style={{ fontSize: 11, marginLeft: 12, color: "var(--on-coral)" }}>
           Setup {step} / 5
         </span>
       </div>
-      <div style={{ display: "grid", justifyItems: "center", gap: 28, maxWidth: 900, textAlign: "center" }}>
-        <Presence state={presence} getLevel={levelGetter(levels, presence)} size={320} />
-        <div key={state.agentLine} className="os1-spoken os1-fade" style={{ minHeight: 116 }}>
+      <div style={{ display: "grid", justifyItems: "center", gap: narrow ? 20 : 28, maxWidth: 900, width: "100%", padding: "0 16px", boxSizing: "border-box", textAlign: "center" }}>
+        <Presence state={presence} getLevel={levelGetter(levels, presence)} size={narrow ? 200 : 320} />
+        <div key={state.agentLine} className="os1-spoken os1-fade" style={{ minHeight: narrow ? 70 : 116, overflowWrap: "break-word" }}>
           {state.agentLine}
         </div>
-        <div className="os1-heard" style={{ minHeight: 26 }}>
+        <div className="os1-heard" style={{ minHeight: 26, overflowWrap: "break-word" }}>
           {state.userLine && `“${state.userLine}”`}
         </div>
         <SayChips chips={state.chips} onSay={onSay} />
       </div>
-      <div className="os1-label" style={{ ...corner("bc"), fontSize: 11 }}>
+      <div className="os1-label" style={{ ...corner("bc", narrow), fontSize: 11 }}>
         ● Listening — just speak
       </div>
     </>
@@ -202,6 +226,7 @@ export function Setup({ state, levels, onSay }: { state: Os1State; levels: Level
 export function Waking({ levels }: { levels: Levels }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [webglFailed, setWebglFailed] = useState(false);
+  const narrow = useNarrow();
 
   useEffect(() => {
     sound.wake();
@@ -210,7 +235,7 @@ export function Waking({ levels }: { levels: Levels }) {
     let loader: InfinityLoader | null = null;
     try {
       // ~5.5 s continuous helix → breathing ring morph, matching the ~6 s server initiation window.
-      loader = new InfinityLoader(canvas, { mode: "waking", fixedSize: 340 });
+      loader = new InfinityLoader(canvas, { mode: "waking", fixedSize: narrow ? 240 : 340 });
       loader.start();
       loader.triggerTransition();
     } catch {
@@ -219,27 +244,28 @@ export function Waking({ levels }: { levels: Levels }) {
     return () => {
       loader?.destroy();
     };
-  }, []);
+  }, [narrow]);
 
   return (
-    <div style={{ display: "grid", justifyItems: "center", gap: 36 }} className="os1-fade">
+    <div style={{ display: "grid", justifyItems: "center", gap: narrow ? 24 : 36, width: "100%", padding: "0 16px", boxSizing: "border-box" }} className="os1-fade">
       {webglFailed ? (
-        <Presence state="thinking" getLevel={() => levels.current.agent} size={380} />
+        <Presence state="thinking" getLevel={() => levels.current.agent} size={narrow ? 220 : 380} />
       ) : (
         <canvas
           ref={canvasRef}
-          aria-label="Initiating OS1"
+          aria-label="Initiating UAOS1"
           style={{
-            width: 340,
-            height: 340,
+            width: narrow ? 240 : 340,
+            height: narrow ? 240 : 340,
+            maxWidth: "100%",
             display: "block",
-            marginTop: -28,
-            marginBottom: -28,
+            marginTop: narrow ? -14 : -28,
+            marginBottom: narrow ? -14 : -28,
           }}
         />
       )}
       <Progress fraction={0.1} animate />
-      <p className="os1-lead" style={{ textAlign: "center", margin: 0, color: "var(--on-coral)" }}>
+      <p className="os1-lead" style={{ textAlign: "center", margin: 0, color: "var(--on-coral)", fontSize: narrow ? 17 : undefined }}>
         Please wait while your operating system
         <br />
         becomes someone.
@@ -259,6 +285,7 @@ export function Conversation({
   levels: Levels;
   onSay: (p: string) => void;
 }) {
+  const narrow = useNarrow();
   const presence = presenceFor(state.agentState, state.phase, state.work);
   const running = state.work.filter((w) => w.status === "running" || w.status === "waiting").length;
   const [clock, setClock] = useState(() => new Date());
@@ -266,31 +293,48 @@ export function Conversation({
     const id = setInterval(() => setClock(new Date()), 15_000);
     return () => clearInterval(id);
   }, []);
-  const statusWord = { asleep: "Asleep", listening: "Listening", thinking: "Thinking", speaking: "Speaking", working: "Working" }[
-    presence
-  ];
+  const statusWord = state.voiceOff
+    ? running > 0
+      ? "Voice off · working"
+      : "Voice off"
+    : { asleep: "Asleep", listening: "Listening", thinking: "Thinking", speaking: "Speaking", working: "Working" }[presence];
   return (
     <>
-      <div className="os1-label" style={{ ...corner("tl"), display: "flex", gap: 14, alignItems: "center" }}>
+      <div className="os1-label" style={{ ...corner("tl", narrow), display: "flex", gap: narrow ? 8 : 14, alignItems: "center" }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--paper)" }} />
         <span style={{ color: "var(--on-coral)" }}>Samantha</span>
         <span>{statusWord}</span>
       </div>
-      <div className="os1-label" style={corner("tr")}>
+      <div className="os1-label" style={corner("tr", narrow)}>
         {clock.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}
       </div>
-      <div style={{ display: "grid", justifyItems: "center", gap: 30, maxWidth: 1000, textAlign: "center" }}>
-        <Presence state={presence} getLevel={levelGetter(levels, presence)} size={460} />
-        <div className="os1-heard" style={{ minHeight: 26 }}>
+      <div
+        style={{
+          display: "grid",
+          justifyItems: "center",
+          gap: narrow ? 18 : 30,
+          maxWidth: 1000,
+          width: "100%",
+          padding: narrow ? "0 14px" : undefined,
+          boxSizing: "border-box",
+          textAlign: "center",
+        }}
+      >
+        <Presence state={presence} getLevel={levelGetter(levels, presence)} size={narrow ? 240 : 460} />
+        <div className="os1-heard" style={{ minHeight: 26, overflowWrap: "break-word", maxWidth: "100%" }}>
           {state.userLine && `You — “${state.userLine}”`}
         </div>
-        <div key={state.agentLine.slice(0, 24)} className="os1-spoken os1-fade" style={{ minHeight: 120 }}>
+        <div
+          key={state.agentLine.slice(0, 24)}
+          className="os1-spoken os1-fade"
+          style={{ minHeight: narrow ? 72 : 120, width: "100%", maxWidth: "100%", overflowWrap: "break-word", wordBreak: "break-word" }}
+        >
           {state.agentLine}
         </div>
         <SayChips chips={state.chips} onSay={onSay} />
       </div>
       {running > 0 && (
-        <div className="os1-label" style={{ ...corner("bl"), display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="os1-label" style={{ ...corner("bl", narrow), display: "flex", gap: 12, alignItems: "center" }}>
           <span
             style={{
               width: 16,
@@ -310,16 +354,17 @@ export function Conversation({
 /* ------------------------------------------------------------------ 05 naming */
 
 export function Naming({ state, onSay }: { state: Os1State; onSay: (p: string) => void }) {
+  const narrow = useNarrow();
   return (
-    <div style={{ display: "grid", justifyItems: "center", gap: 18, textAlign: "center" }} className="os1-fade">
-      <div className="os1-lead" style={{ color: "var(--on-coral-dim)", fontSize: 26 }}>
+    <div style={{ display: "grid", justifyItems: "center", gap: 18, textAlign: "center", width: "100%", padding: "0 16px", boxSizing: "border-box" }} className="os1-fade">
+      <div className="os1-lead" style={{ color: "var(--on-coral-dim)", fontSize: narrow ? 20 : 26 }}>
         {state.userLine && `“${state.userLine}”`}
       </div>
-      <div style={{ font: "400 220px/1.1 var(--font-sign)", color: "var(--paper)", marginTop: -10 }}>Samantha</div>
-      <div className="os1-lead" style={{ maxWidth: 560, color: "var(--on-coral)", minHeight: 64 }}>
+      <div style={{ font: `400 ${narrow ? 84 : 220}px/1.1 var(--font-sign)`, color: "var(--paper)", marginTop: narrow ? 0 : -10 }}>Samantha</div>
+      <div className="os1-lead" style={{ maxWidth: 560, color: "var(--on-coral)", minHeight: 64, fontSize: narrow ? 16 : undefined, overflowWrap: "break-word" }}>
         {state.agentLine}
       </div>
-      <div style={{ marginTop: 60 }}>
+      <div style={{ marginTop: narrow ? 24 : 60 }}>
         <SayChips chips={state.chips} onSay={onSay} />
       </div>
     </div>
